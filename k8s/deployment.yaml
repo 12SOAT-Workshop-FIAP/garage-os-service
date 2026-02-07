@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-service
+  labels:
+    app: os-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: os-service
+  template:
+    metadata:
+      labels:
+        app: os-service
+    spec:
+      containers:
+      - name: os-service
+        image: garage-os-service:latest
+        ports:
+        - containerPort: 3001
+        env:
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: os-service-config
+              key: database-host
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: os-service-secrets
+              key: database-user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: os-service-secrets
+              key: database-password
+        - name: DATABASE_NAME
+          value: "os_service"
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: os-service-secrets
+              key: rabbitmq-url
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: os-service
+spec:
+  selector:
+    app: os-service
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3001
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: os-service-config
+data:
+  database-host: postgres-os-service
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: os-service-secrets
+type: Opaque
+stringData:
+  database-user: postgres
+  database-password: postgres
+  rabbitmq-url: amqp://rabbitmq:5672
