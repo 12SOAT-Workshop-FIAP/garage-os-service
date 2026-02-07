@@ -1,0 +1,165 @@
+{
+  "info": {
+    "name": "OS Service API",
+    "description": "Collection for OS Service endpoints - Work Orders, Customers, Vehicles",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Work Orders",
+      "item": [
+        {
+          "name": "Create Work Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"vehicleId\": 1,\n  \"description\": \"Oil change and filter replacement\",\n  \"estimatedCost\": 250.00\n}"
+            },
+            "url": { "raw": "{{base_url}}/work-orders", "host": ["{{base_url}}"], "path": ["work-orders"] }
+          }
+        },
+        {
+          "name": "Get All Work Orders",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/work-orders", "host": ["{{base_url}}"], "path": ["work-orders"] } }
+        },
+        {
+          "name": "Get Work Orders by Status",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/work-orders?status=PENDING", "host": ["{{base_url}}"], "path": ["work-orders"], "query": [{ "key": "status", "value": "PENDING" }] } }
+        },
+        {
+          "name": "Get Work Order by ID",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/work-orders/{{work_order_id}}", "host": ["{{base_url}}"], "path": ["work-orders", "{{work_order_id}}"] } }
+        },
+        {
+          "name": "Update Work Order",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}" },
+            "url": { "raw": "{{base_url}}/work-orders/{{work_order_id}}", "host": ["{{base_url}}"], "path": ["work-orders", "{{work_order_id}}"] }
+          }
+        },
+        {
+          "name": "Approve Work Order",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/work-orders/{{work_order_id}}/approve", "host": ["{{base_url}}"], "path": ["work-orders", "{{work_order_id}}", "approve"] }
+          }
+        },
+        {
+          "name": "Cancel Work Order",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/work-orders/{{work_order_id}}", "host": ["{{base_url}}"], "path": ["work-orders", "{{work_order_id}}"] }
+          }
+        },
+        {
+          "name": "Get Work Order History",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/work-orders/{{work_order_id}}/history", "host": ["{{base_url}}"], "path": ["work-orders", "{{work_order_id}}", "history"] } }
+        },
+        {
+          "name": "Get Public Status (No Auth)",
+          "request": { "method": "GET", "auth": { "type": "noauth" }, "url": { "raw": "{{base_url}}/public/work-orders/{{work_order_id}}/status", "host": ["{{base_url}}"], "path": ["public", "work-orders", "{{work_order_id}}", "status"] } }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"personType\": \"INDIVIDUAL\",\n  \"document\": \"123.456.789-00\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"11999998888\"\n}" },
+            "url": { "raw": "{{base_url}}/customers", "host": ["{{base_url}}"], "path": ["customers"] }
+          }
+        },
+        {
+          "name": "Get All Customers",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/customers", "host": ["{{base_url}}"], "path": ["customers"] } }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/customers/1", "host": ["{{base_url}}"], "path": ["customers", "1"] } }
+        },
+        {
+          "name": "Get Customer by Document",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/customers/document/123.456.789-00", "host": ["{{base_url}}"], "path": ["customers", "document", "123.456.789-00"] } }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"11888887777\"\n}" },
+            "url": { "raw": "{{base_url}}/customers/1", "host": ["{{base_url}}"], "path": ["customers", "1"] }
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/customers/1", "host": ["{{base_url}}"], "path": ["customers", "1"] } }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles",
+      "item": [
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plate\": \"ABC1D23\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"year\": 2024,\n  \"customerId\": 1\n}" },
+            "url": { "raw": "{{base_url}}/vehicles", "host": ["{{base_url}}"], "path": ["vehicles"] }
+          }
+        },
+        {
+          "name": "Get All Vehicles",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/vehicles", "host": ["{{base_url}}"], "path": ["vehicles"] } }
+        },
+        {
+          "name": "Get Vehicle by ID",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/vehicles/1", "host": ["{{base_url}}"], "path": ["vehicles", "1"] } }
+        },
+        {
+          "name": "Get Vehicles by Customer",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/vehicles/customer/1", "host": ["{{base_url}}"], "path": ["vehicles", "customer", "1"] } }
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"brand\": \"Honda\"\n}" },
+            "url": { "raw": "{{base_url}}/vehicles/1", "host": ["{{base_url}}"], "path": ["vehicles", "1"] }
+          }
+        },
+        {
+          "name": "Delete Vehicle",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/vehicles/1", "host": ["{{base_url}}"], "path": ["vehicles", "1"] } }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check (No Auth)",
+          "request": { "method": "GET", "auth": { "type": "noauth" }, "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] } }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3001", "type": "string" },
+    { "key": "work_order_id", "value": "", "type": "string" },
+    { "key": "jwt_token", "value": "", "type": "string" }
+  ]
+}
