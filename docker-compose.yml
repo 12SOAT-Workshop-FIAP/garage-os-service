@@ -14,6 +14,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - garage-network
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
@@ -30,6 +32,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - garage-network
 
   os-service:
     build:
@@ -52,7 +56,14 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - garage-network
 
 volumes:
   postgres-data:
   rabbitmq-data:
+
+networks:
+  garage-network:
+    name: garage-network
+    driver: bridge
