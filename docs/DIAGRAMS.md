@@ -15,10 +15,10 @@ graph TB
     end
 
     subgraph Infrastructure
-        RMQ[(RabbitMQ<br/>Message Broker)]
-        PG1[(PostgreSQL<br/>OS DB)]
-        MDB[(MongoDB<br/>Billing DB)]
-        PG2[(PostgreSQL<br/>Execution DB)]
+        RMQ[(RabbitMQ<br/>Shared Instance<br/>Owned by OS Service)]
+        PG1[(PostgreSQL<br/>OS DB :5432)]
+        MDB[(MongoDB<br/>Billing DB :27017)]
+        PG2[(PostgreSQL<br/>Execution DB :5433)]
     end
 
     subgraph External
@@ -155,9 +155,11 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING: Work order created
+    [*] --> RECEIVED: Work order created
+    RECEIVED --> PENDING: Accepted
 
-    PENDING --> AWAITING_QUOTE: Awaiting quote generation
+    PENDING --> DIAGNOSIS: Start diagnosis
+    DIAGNOSIS --> AWAITING_QUOTE: Diagnosis complete
     AWAITING_QUOTE --> QUOTE_SENT: Quote sent to customer
 
     QUOTE_SENT --> APPROVED: Customer approves
@@ -172,6 +174,7 @@ stateDiagram-v2
 
     COMPLETED --> DELIVERED: Vehicle delivered
 
+    RECEIVED --> CANCELLED: Client cancels
     PENDING --> CANCELLED: Client cancels
     AWAITING_QUOTE --> CANCELLED: Client cancels
 
