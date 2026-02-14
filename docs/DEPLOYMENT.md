@@ -16,10 +16,12 @@
 Each service is an independent Git repository:
 
 ```
-garage-os-service/          → Port 3001, PostgreSQL, RabbitMQ
-garage-billing-service/     → Port 3002, MongoDB, RabbitMQ
-garage-execution-service/   → Port 3003, PostgreSQL, RabbitMQ
+garage-os-service/          → Port 3001, PostgreSQL, RabbitMQ (shared instance)
+garage-billing-service/     → Port 3002, MongoDB
+garage-execution-service/   → Port 3003, PostgreSQL (port 5433)
 ```
+
+> The single shared RabbitMQ instance is owned by the OS Service. See [MESSAGING.md](MESSAGING.md) for details.
 
 ---
 
@@ -27,34 +29,35 @@ garage-execution-service/   → Port 3003, PostgreSQL, RabbitMQ
 
 ### Option A: Docker Compose (Recommended)
 
-Each service ships a self-contained `docker-compose.yml` that provisions its database and RabbitMQ.
+The OS Service creates a shared Docker network (`garage-network`) and the single RabbitMQ instance. The other services join this network.
 
 ```bash
-# Clone and start OS Service
+# 1. Start OS Service FIRST (creates garage-network + shared RabbitMQ)
 cd garage-os-service
 cp .env.example .env
 docker compose up -d
 
-# Clone and start Billing Service
-cd garage-billing-service
+# 2. Start Billing Service (joins garage-network, starts MongoDB)
+cd ../garage-billing-service
 cp .env.example .env
 docker compose up -d
 
-# Clone and start Execution Service
-cd garage-execution-service
+# 3. Start Execution Service (joins garage-network, starts PostgreSQL on port 5433)
+cd ../garage-execution-service
 cp .env.example .env
 docker compose up -d
 ```
 
 **Port allocation when running all services locally:**
 
-| Service | App | DB | RabbitMQ | RabbitMQ UI |
-|---------|-----|-----|----------|-------------|
-| OS | 3001 | 5432 (PostgreSQL) | 5672 | 15672 |
-| Billing | 3002 | 27017 (MongoDB) | 5672 | 15672 |
-| Execution | 3003 | 5432 (PostgreSQL) | 5672 | 15672 |
+| Service | App | DB | Source Compose |
+|---------|-----|----|----------------|
+| OS | 3001 | 5432 (PostgreSQL) | garage-os-service |
+| Billing | 3002 | 27017 (MongoDB) | garage-billing-service |
+| Execution | 3003 | 5433 (PostgreSQL) | garage-execution-service |
+| RabbitMQ | -- | 5672 (AMQP), 15672 (UI) | garage-os-service |
 
-> **Note:** When running multiple services simultaneously on the same host, modify the published database and RabbitMQ ports in each `docker-compose.yml` to avoid conflicts. Alternatively, share a single RabbitMQ instance by pointing all services to the same broker URL.
+> **Important:** The OS Service must be started first. It creates the `garage-network` and the shared RabbitMQ instance. Billing and Execution services declare this network as `external: true`.
 
 ### Option B: Native Node.js
 

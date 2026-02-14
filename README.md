@@ -72,7 +72,7 @@ git clone <repo-url>
 cd garage-os-service
 npm install
 
-# 2. Start infrastructure
+# 2. Start infrastructure (PostgreSQL + shared RabbitMQ + garage-network)
 docker compose up -d postgres rabbitmq
 
 # 3. Configure environment
@@ -88,7 +88,9 @@ npm run start:dev
 docker compose up -d
 ```
 
-This starts PostgreSQL, RabbitMQ, and the service.
+This starts PostgreSQL, RabbitMQ, the service, and creates the `garage-network` shared Docker network.
+
+> **This service must be started first** -- it creates the `garage-network` and the single shared RabbitMQ instance used by all three microservices.
 
 ## API
 
@@ -118,7 +120,7 @@ Interactive documentation: `http://localhost:3001/api`
 | GET | /vehicles | List vehicles |
 | GET | /vehicles/:id | Get vehicle |
 | GET | /vehicles/customer/:id | Vehicles by customer |
-| PATCH | /vehicles/:id | Update vehicle |
+| PUT | /vehicles/:id | Update vehicle |
 | DELETE | /vehicles/:id | Delete vehicle |
 | GET | /health | Health check (no auth) |
 
@@ -184,6 +186,7 @@ kubectl rollout status deployment/os-service
 This repository hosts centralized documentation in `docs/`:
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture and design decisions
+- [MESSAGING.md](docs/MESSAGING.md) - RabbitMQ messaging architecture and event catalog
 - [API.md](docs/API.md) - Complete API reference for all services
 - [DEPLOYMENT.md](docs/DEPLOYMENT.md) - Deployment guide
 - [DIAGRAMS.md](docs/DIAGRAMS.md) - Mermaid diagrams (17 visual diagrams)

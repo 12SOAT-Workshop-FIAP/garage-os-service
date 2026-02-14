@@ -51,7 +51,9 @@ Used for client-facing CRUD operations and queries. Each service exposes its own
 
 ### Asynchronous (RabbitMQ)
 
-Used for inter-service event propagation. All services connect to a shared RabbitMQ instance using a `topic` exchange named `garage-events`.
+Used for inter-service event propagation. All services connect to a **single shared RabbitMQ instance** owned by the OS Service (entrypoint), using a `topic` exchange named `garage-events`. The other services join via the `garage-network` Docker network.
+
+For full messaging documentation, see [MESSAGING.md](MESSAGING.md).
 
 **Routing key pattern:** `{resource}.{action}`
 
@@ -91,54 +93,73 @@ We implement the **choreographed** variant of the Saga pattern. Each service lis
 
 ### Happy Path Flow
 
-```
-1. Client creates work order
-   → OS Service saves (PENDING), publishes [work-order.created]
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant OS as OS Service
+    participant RMQ as RabbitMQ
+    participant B as Billing Service
+    participant E as Execution Service
 
-2. Billing receives event
-   → Generates quote, publishes [quote.created]
-
-3. Client approves quote
-   → Billing updates quote (APPROVED), publishes [quote.approved]
-   → OS Service updates work order (APPROVED)
-
-4. Client initiates payment
-   → Billing processes via Mercado Pago SDK
-   → On success: publishes [payment.approved]
-   → OS Service updates work order (IN_PROGRESS)
-
-5. Execution receives [payment.approved]
-   → Creates execution (QUEUED)
-   → Technician performs diagnosis → repair → completion
-   → Publishes [execution.completed]
-
-6. OS Service receives [execution.completed]
-   → Updates work order (COMPLETED)
+    C->>OS: POST /work-orders
+    OS->>OS: Save (PENDING)
+    OS->>RMQ: work-order.created
+    RMQ->>B: Generates quote
+    B->>RMQ: quote.created
+    C->>B: Approve quote
+    B->>RMQ: quote.approved
+    RMQ->>OS: Update (APPROVED)
+    C->>B: POST /payments
+    B->>RMQ: payment.approved
+    RMQ->>OS: Update (IN_PROGRESS)
+    RMQ->>E: Create execution (QUEUED)
+    E->>E: Diagnosis → Repair
+    E->>RMQ: execution.completed
+    RMQ->>OS: Update (COMPLETED)
 ```
 
 ### Compensation Scenarios
 
 **Payment failure:**
-```
-Mercado Pago rejects payment
-→ Billing publishes [payment.failed]
-→ OS Service reverts work order status to APPROVED
+
+```mermaid
+sequenceDiagram
+    participant B as Billing Service
+    participant RMQ as RabbitMQ
+    participant OS as OS Service
+
+    B->>B: Mercado Pago rejects payment
+    B->>RMQ: payment.failed
+    RMQ->>OS: Revert work order to APPROVED
 ```
 
 **Work order cancellation:**
-```
-Client cancels work order
-→ OS Service publishes [work-order.cancelled]
-→ Billing cancels quote, processes refund if payment exists
-→ Execution cancels execution (sets FAILED), publishes [execution.failed]
+
+```mermaid
+sequenceDiagram
+    participant OS as OS Service
+    participant RMQ as RabbitMQ
+    participant B as Billing Service
+    participant E as Execution Service
+
+    OS->>RMQ: work-order.cancelled
+    RMQ->>B: Cancel quote + refund
+    RMQ->>E: Cancel execution (FAILED)
+    E->>RMQ: execution.failed
 ```
 
 **Execution failure:**
-```
-Execution fails during repair
-→ Execution publishes [execution.failed]
-→ Billing processes refund via Mercado Pago
-→ OS Service updates work order status
+
+```mermaid
+sequenceDiagram
+    participant E as Execution Service
+    participant RMQ as RabbitMQ
+    participant B as Billing Service
+    participant OS as OS Service
+
+    E->>RMQ: execution.failed
+    RMQ->>B: Refund via Mercado Pago
+    RMQ->>OS: Update work order status
 ```
 
 ## Authentication
@@ -156,6 +177,8 @@ Public endpoints:
 Each service has a multi-stage `Dockerfile`:
 - **Build stage:** `node:20-alpine`, installs dependencies, compiles TypeScript
 - **Runtime stage:** `node:20-alpine`, copies only `dist/` and `node_modules/`
+
+**Shared Infrastructure:** The OS Service `docker-compose.yml` creates a `garage-network` Docker network and the single shared RabbitMQ instance. Billing and Execution services declare this network as `external: true` and connect to the same RabbitMQ. OS Service **must be started first**.
 
 ### Kubernetes
 
