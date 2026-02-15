@@ -2,11 +2,11 @@
 
 ## Overview
 
-The garage management system uses **RabbitMQ** for asynchronous inter-service communication. All three microservices connect to a **single shared RabbitMQ instance** to publish and consume events following a choreographed saga pattern.
+The garage management system uses **RabbitMQ** for asynchronous inter-service communication. Each microservice runs a **dedicated RabbitMQ instance** (one per service) to publish and consume events following a choreographed saga pattern.
 
-## Architecture Decision: Single Shared RabbitMQ
+## Architecture Decision: Dedicated RabbitMQ per Service
 
-The RabbitMQ instance is defined and owned by the **OS Service** (`garage-os-service`), which is the system entrypoint. The other services (`garage-billing-service` and `garage-execution-service`) connect to this same instance via a shared Docker network (`garage-network`).
+Each service manages its own RabbitMQ instance. This simplifies isolation and failure domains at the cost of additional infrastructure. The `garage-os-service`, `garage-billing-service` and `garage-execution-service` each start and use their own RabbitMQ broker in local/docker-compose setups.
 
 ### Why a Single Instance?
 
@@ -63,31 +63,26 @@ graph TB
 flowchart LR
     subgraph step1 ["1 - Start OS Service"]
         direction TB
-        A1[docker compose up -d] --> A2[Creates garage-network]
-        A2 --> A3[Starts PostgreSQL]
-        A2 --> A4[Starts RabbitMQ]
-        A3 --> A5[Starts OS Service]
-        A4 --> A5
+        A1[docker compose up -d] --> A2[Starts PostgreSQL and RabbitMQ (os)]
+        A2 --> A3[Starts OS Service]
     end
 
     subgraph step2 ["2 - Start Billing Service"]
         direction TB
-        B1[docker compose up -d] --> B2[Joins garage-network\nexternal: true]
-        B2 --> B3[Starts MongoDB]
-        B3 --> B4[Starts Billing Service]
+        B1[docker compose up -d] --> B2[Starts MongoDB and RabbitMQ (billing)]
+        B2 --> B3[Starts Billing Service]
     end
 
     subgraph step3 ["3 - Start Execution Service"]
         direction TB
-        C1[docker compose up -d] --> C2[Joins garage-network\nexternal: true]
-        C2 --> C3[Starts PostgreSQL :5433]
-        C3 --> C4[Starts Execution Service]
+        C1[docker compose up -d] --> C2[Starts PostgreSQL and RabbitMQ (execution)]
+        C2 --> C3[Starts Execution Service]
     end
 
     step1 --> step2 --> step3
 ```
 
-> **OS Service must be started first** -- it creates the `garage-network` and the shared RabbitMQ. The other services declare the network as `external: true`.
+Each service brings up its own RabbitMQ broker as part of local `docker compose` orchestration. Services can still communicate via AMQP using service DNS (`rabbitmq-os-service`, `rabbitmq-billing-service`, `rabbitmq-execution-service`).
 
 ## RabbitMQ Exchange & Queues
 

@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-os-service:
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: os_service
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-os-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -17,7 +17,7 @@ services:
     networks:
       - garage-network
 
-  rabbitmq:
+  rabbitmq-os-service:
     image: rabbitmq:3.12-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: guest
@@ -26,7 +26,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-os-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 10s
@@ -41,27 +41,27 @@ services:
       dockerfile: Dockerfile
     environment:
       PORT: 3001
-      DATABASE_HOST: postgres
+      DATABASE_HOST: postgres-os-service
       DATABASE_PORT: 5432
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: os_service
-      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_URL: amqp://rabbitmq-os-service:5672
       JWT_SECRET: ${JWT_SECRET:-default-dev-secret}
       NODE_ENV: development
     ports:
       - "3001:3001"
     depends_on:
-      postgres:
+      postgres-os-service:
         condition: service_healthy
-      rabbitmq:
+      rabbitmq-os-service:
         condition: service_healthy
     networks:
       - garage-network
 
 volumes:
-  postgres-data:
-  rabbitmq-data:
+  postgres-os-data:
+  rabbitmq-os-data:
 
 networks:
   garage-network:

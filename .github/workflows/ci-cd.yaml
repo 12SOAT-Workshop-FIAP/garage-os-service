@@ -62,6 +62,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -79,10 +82,10 @@ jobs:
         ECR_REPOSITORY: garage-os-service
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker buildx build --platform linux/amd64 \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          --push .
 
   deploy:
     needs: build
@@ -99,9 +102,22 @@ jobs:
         aws-region: us-east-1
     
     - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name garage-cluster --region us-east-1
+      run: aws eks update-kubeconfig --name garage-cluster-aws --region us-east-1
     
-    - name: Deploy to Kubernetes
+    - name: Deploy infrastructure
       run: |
-        kubectl apply -f k8s/deployment.yaml
-        kubectl rollout status deployment/os-service
+        kubectl apply -f k8s/postgres-os-deployment.yaml -n garage-production
+        kubectl apply -f k8s/rabbitmq-os-deployment.yaml -n garage-production
+        kubectl wait --for=condition=ready pod -l app=postgres-os-service -n garage-production --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=rabbitmq-os-service -n garage-production --timeout=300s
+    
+    - name: Update deployment with AWS Account ID
+      run: |
+        export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        sed -i "s|<AWS_ACCOUNT_ID>|$AWS_ACCOUNT_ID|g" k8s/deployment.yaml
+        echo "Updated deployment.yaml with AWS Account ID: $AWS_ACCOUNT_ID"
+    
+    - name: Deploy application
+      run: |
+        kubectl apply -f k8s/deployment.yaml -n garage-production
+        kubectl rollout status deployment/os-service -n garage-production --timeout=5m

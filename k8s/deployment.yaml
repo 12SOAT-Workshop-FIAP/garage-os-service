@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: os-service
-        image: garage-os-service:latest
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/garage-os-service:latest
         ports:
         - containerPort: 3001
         env:
@@ -92,4 +92,4 @@ type: Opaque
 stringData:
   database-user: postgres
   database-password: postgres
-  rabbitmq-url: amqp://rabbitmq:5672
+  rabbitmq-url: amqp://rabbitmq-os-service:5672
