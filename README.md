@@ -72,8 +72,8 @@ git clone <repo-url>
 cd garage-os-service
 npm install
 
-# 2. Start infrastructure (PostgreSQL + shared RabbitMQ + garage-network)
-docker compose up -d postgres rabbitmq
+# 2. Start infrastructure (PostgreSQL + dedicated RabbitMQ)
+docker compose up -d postgres-os-service rabbitmq-os-service
 
 # 3. Configure environment
 cp .env.example .env
@@ -88,9 +88,7 @@ npm run start:dev
 docker compose up -d
 ```
 
-This starts PostgreSQL, RabbitMQ, the service, and creates the `garage-network` shared Docker network.
-
-> **This service must be started first** -- it creates the `garage-network` and the single shared RabbitMQ instance used by all three microservices.
+This starts PostgreSQL, RabbitMQ (dedicated to OS), and the service.
 
 ## API
 

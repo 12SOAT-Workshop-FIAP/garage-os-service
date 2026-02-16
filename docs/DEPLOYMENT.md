@@ -16,12 +16,12 @@
 Each service is an independent Git repository:
 
 ```
-garage-os-service/          → Port 3001, PostgreSQL, RabbitMQ (shared instance)
+garage-os-service/          → Port 3001, PostgreSQL, RabbitMQ (dedicated instance)
 garage-billing-service/     → Port 3002, MongoDB
 garage-execution-service/   → Port 3003, PostgreSQL (port 5433)
 ```
 
-> The single shared RabbitMQ instance is owned by the OS Service. See [MESSAGING.md](MESSAGING.md) for details.
+> Each service runs a dedicated RabbitMQ instance. See [MESSAGING.md](MESSAGING.md) for details.
 
 ---
 
@@ -32,17 +32,15 @@ garage-execution-service/   → Port 3003, PostgreSQL (port 5433)
 The OS Service creates a shared Docker network (`garage-network`) and the single RabbitMQ instance. The other services join this network.
 
 ```bash
-# 1. Start OS Service FIRST (creates garage-network + shared RabbitMQ)
+# Start each service and its local infrastructure independently
 cd garage-os-service
 cp .env.example .env
 docker compose up -d
 
-# 2. Start Billing Service (joins garage-network, starts MongoDB)
 cd ../garage-billing-service
 cp .env.example .env
 docker compose up -d
 
-# 3. Start Execution Service (joins garage-network, starts PostgreSQL on port 5433)
 cd ../garage-execution-service
 cp .env.example .env
 docker compose up -d
@@ -50,14 +48,13 @@ docker compose up -d
 
 **Port allocation when running all services locally:**
 
-| Service | App | DB | Source Compose |
-|---------|-----|----|----------------|
-| OS | 3001 | 5432 (PostgreSQL) | garage-os-service |
-| Billing | 3002 | 27017 (MongoDB) | garage-billing-service |
-| Execution | 3003 | 5433 (PostgreSQL) | garage-execution-service |
-| RabbitMQ | -- | 5672 (AMQP), 15672 (UI) | garage-os-service |
+| Service | App | DB | RabbitMQ (host mapping) | Source Compose |
+|---------|-----|----|------------------------|----------------|
+| OS | 3001 | 5432 (PostgreSQL) | 5672/15672 | garage-os-service |
+| Billing | 3002 | 27017 (MongoDB) | 5674/15674 | garage-billing-service |
+| Execution | 3003 | 5433 (PostgreSQL) | 5675/15675 | garage-execution-service |
 
-> **Important:** The OS Service must be started first. It creates the `garage-network` and the shared RabbitMQ instance. Billing and Execution services declare this network as `external: true`.
+Each repository brings up its own RabbitMQ broker; there is no requirement to start the OS Service first.
 
 ### Option B: Native Node.js
 
@@ -240,13 +237,13 @@ kubectl create namespace garage-production
 kubectl create secret generic os-service-secrets \
   --from-literal=database-user=postgres \
   --from-literal=database-password=<PASSWORD> \
-  --from-literal=rabbitmq-url=amqp://rabbitmq:5672 \
+  --from-literal=rabbitmq-url=amqp://rabbitmq-os-service:5672 \
   -n garage-production
 
 # Billing Service
 kubectl create secret generic billing-service-secrets \
   --from-literal=mongodb-uri=mongodb://mongodb:27017/billing_service \
-  --from-literal=rabbitmq-url=amqp://rabbitmq:5672 \
+  --from-literal=rabbitmq-url=amqp://rabbitmq-billing-service:5672 \
   --from-literal=mercadopago-access-token=<TOKEN> \
   --from-literal=mercadopago-public-key=<KEY> \
   -n garage-production
@@ -255,7 +252,7 @@ kubectl create secret generic billing-service-secrets \
 kubectl create secret generic execution-service-secrets \
   --from-literal=database-user=postgres \
   --from-literal=database-password=<PASSWORD> \
-  --from-literal=rabbitmq-url=amqp://rabbitmq:5672 \
+  --from-literal=rabbitmq-url=amqp://rabbitmq-execution-service:5672 \
   -n garage-production
 ```
 

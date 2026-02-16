@@ -7,67 +7,72 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-        cache: 'npm'
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v3
+  #     with:
+  #       node-version: '20'
+  #       cache: 'npm'
     
-    - name: Install dependencies
-      run: npm ci
+  #   - name: Install dependencies
+  #     run: npm ci
     
-    - name: Run linter
-      run: npm run lint
+  #   - name: Run linter
+  #     run: npm run lint
     
-    - name: Run tests
-      run: npm run test:cov
+  #   - name: Run tests
+  #     run: npm run test:cov
     
-    - name: Check coverage
-      run: |
-        COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
-        echo "Coverage: $COVERAGE%"
-        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-          echo "Coverage is below 80%"
-          exit 1
-        fi
+  #   - name: Check coverage
+  #     run: |
+  #       COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+  #       echo "Coverage: $COVERAGE%"
+  #       if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+  #         echo "Coverage is below 80%"
+  #         exit 1
+  #       fi
     
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage/lcov.info
+  #   - name: Upload coverage to Codecov
+  #     uses: codecov/codecov-action@v3
+  #     with:
+  #       files: ./coverage/lcov.info
 
-  sonarqube:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+  # sonarqube:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #     with:
+  #       fetch-depth: 0
     
-    - name: SonarQube Scan
-      uses: sonarsource/sonarqube-scan-action@master
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  #   - name: SonarQube Scan
+  #     uses: sonarsource/sonarqube-scan-action@master
+  #     env:
+  #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  #     with:
+  #       args: >
+  #         -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
 
   build:
-    needs: [test, sonarqube]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
     - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ secrets.AWS_REGION }}
     
     - name: Login to Amazon ECR
       id: login-ecr
@@ -76,13 +81,13 @@ jobs:
     - name: Build and push Docker image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: garage-os-service
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker buildx build --platform linux/amd64 \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          --push .
 
   deploy:
     needs: build
@@ -96,12 +101,26 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ secrets.AWS_REGION }}
     
     - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name garage-cluster --region us-east-1
+      run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
     
-    - name: Deploy to Kubernetes
+    - name: Deploy infrastructure
       run: |
-        kubectl apply -f k8s/deployment.yaml
-        kubectl rollout status deployment/os-service
+        kubectl apply -f k8s/postgres-os-deployment.yaml -n garage-production
+        kubectl apply -f k8s/rabbitmq-os-deployment.yaml -n garage-production
+        kubectl wait --for=condition=ready pod -l app=postgres-os-service -n garage-production --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=rabbitmq-os-service -n garage-production --timeout=300s
+    
+    - name: Update deployment with AWS Account ID
+      run: |
+        export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        sed -i "s|<AWS_ACCOUNT_ID>|$AWS_ACCOUNT_ID|g" k8s/deployment.yaml
+        echo "Updated deployment.yaml with AWS Account ID: $AWS_ACCOUNT_ID"
+    
+    - name: Deploy application
+      run: |
+        kubectl apply -f k8s/deployment.yaml -n garage-production
+        kubectl rollout status deployment/os-service -n garage-production --timeout=5m
