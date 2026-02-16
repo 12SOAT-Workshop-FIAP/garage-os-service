@@ -130,4 +130,5 @@ jobs:
     - name: Deploy application
       run: |
         kubectl apply -f k8s/deployment.yaml -n fiap-garage
+        kubectl rollout restart deployment/os-service -n fiap-garage
         kubectl rollout status deployment/os-service -n fiap-garage --timeout=5m
