@@ -83,13 +83,5 @@ metadata:
   name: os-service-config
 data:
   database-host: postgres-os-service
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: os-service-secrets
-type: Opaque
-stringData:
-  database-user: postgres
-  database-password: postgres
-  rabbitmq-url: amqp://rabbitmq-os-service:5672
+
+
