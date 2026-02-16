@@ -109,10 +109,16 @@ jobs:
     
     - name: Deploy infrastructure
       run: |
-        kubectl apply -f k8s/postgres-os-deployment.yaml -n garage-production
-        kubectl apply -f k8s/rabbitmq-os-deployment.yaml -n garage-production
-        kubectl wait --for=condition=ready pod -l app=postgres-os-service -n garage-production --timeout=300s
-        kubectl wait --for=condition=ready pod -l app=rabbitmq-os-service -n garage-production --timeout=300s
+        kubectl apply -f k8s/postgres-os-deployment.yaml -n fiap-garage
+        kubectl wait --for=condition=ready pod -l app=postgres-os-service -n fiap-garage --timeout=300s
+    
+    - name: Create/Update Kubernetes Secrets
+      run: |
+        kubectl delete secret os-service-secrets -n fiap-garage --ignore-not-found
+        kubectl create secret generic os-service-secrets -n fiap-garage \
+          --from-literal=database-user=${{ secrets.OS_DB_USER }} \
+          --from-literal=database-password=${{ secrets.OS_DB_PASSWORD }} \
+          --from-literal=rabbitmq-url=${{ secrets.RABBITMQ_URL }}
     
     - name: Update deployment with AWS Account ID
       run: |
@@ -122,5 +128,5 @@ jobs:
     
     - name: Deploy application
       run: |
-        kubectl apply -f k8s/deployment.yaml -n garage-production
-        kubectl rollout status deployment/os-service -n garage-production --timeout=5m
+        kubectl apply -f k8s/deployment.yaml -n fiap-garage
+        kubectl rollout status deployment/os-service -n fiap-garage --timeout=5m

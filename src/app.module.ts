@@ -8,6 +8,7 @@ import { VehicleModule } from './vehicle/vehicle.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { WorkOrder } from './work-order/entities/work-order.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV === 'development',
     }),
+    TypeOrmModule.forFeature([WorkOrder]),
     CustomerModule,
     VehicleModule,
     WorkOrderModule,
