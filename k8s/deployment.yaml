@@ -44,6 +44,11 @@ spec:
                 secretKeyRef:
                   name: fiap-garage-secret
                   key: RABBITMQ_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fiap-garage-secret
+                  key: JWT_SECRET
           livenessProbe:
             httpGet:
               path: /os/health
