@@ -20,6 +20,21 @@ spec:
           ports:
             - containerPort: 3001
           env:
+            - name: NEW_RELIC_APP_NAME
+              value: 'garage-os-service'
+            - name: NEW_RELIC_LOG
+              value: 'stdout'
+            - name: NEW_RELIC_LOG_LEVEL
+              value: 'info'
+            - name: NEW_RELIC_NO_CONFIG_FILE
+              value: 'true'
+            - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+              value: 'true'
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fiap-garage-secret
+                  key: NEW_RELIC_LICENSE_KEY
             - name: DATABASE_HOST
               valueFrom:
                 configMapKeyRef:

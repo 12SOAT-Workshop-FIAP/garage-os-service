@@ -11,4 +11,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+CMD ["node", "-r", "newrelic", "dist/main.js"]
