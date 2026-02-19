@@ -49,6 +49,8 @@ spec:
                 secretKeyRef:
                   name: fiap-garage-secret
                   key: JWT_SECRET
+            - name: NODE_ENV
+              value: 'development'
           livenessProbe:
             httpGet:
               path: /os/health
